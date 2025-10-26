@@ -6,6 +6,7 @@ authors.workspace = true
 description = "Multi-strategy parser for messy real-world data. Handles broken JSON, markdown wrappers, and type mismatches."
 license.workspace = true
 repository.workspace = true
+readme = "../README.md"
 keywords = ["parsing", "json", "llm", "flexible", "coercion"]
 categories = ["parsing", "text-processing", "development-tools"]
 rust-version.workspace = true
