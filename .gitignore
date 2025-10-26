@@ -1,0 +1,140 @@
+# Rust/Cargo
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock is committed for binaries but not libraries
+# Since this is a binary/application project, we keep Cargo.lock
+# Cargo.lock
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+
+# Executables
+*.exe
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Test artifacts
+tests/custom_dyn_ext/target/
+**/.tarpaulin
+
+# Profiling
+perf.data
+perf.data.old
+flamegraph.svg
+*.profraw
+*.profdata
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-*
+.project
+.classpath
+.settings/
+.metadata/
+
+# JetBrains
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.swp
+*.swo
+
+# Documentation build
+book/
+docs/_build/
+target/doc/
+
+# Generated files
+src/query_compiler/grammar.rs
+proto/eventflux.transport.rs
+
+# Coverage reports
+tarpaulin-report.html
+cobertura.xml
+lcov.info
+
+# Benchmarking
+criterion/
+target/criterion/
+
+# Lock files for workspace members (optional)
+# tests/custom_dyn_ext/Cargo.lock
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Persistence files (runtime generated)
+persistence/
+snapshots/
+*.snapshot
+
+# Configuration overrides (keep templates)
+config/local.yaml
+config/secrets.yaml
+
+# Docker
+docker-compose.override.yml
+references/siddhi/

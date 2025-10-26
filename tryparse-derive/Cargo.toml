@@ -1,0 +1,20 @@
+[package]
+name = "tryparse-derive"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Derive macros for tryparse"
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn.workspace = true
+quote.workspace = true
+proc-macro2.workspace = true
+
+[dev-dependencies]
+tryparse = { path = "../tryparse", default-features = false }
