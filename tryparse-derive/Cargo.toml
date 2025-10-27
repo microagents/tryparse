@@ -7,6 +7,9 @@ description = "Derive macros for tryparse"
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+keywords = ["parsing", "json", "llm", "flexible", "coercion"]
+categories = ["parsing", "text-processing", "development-tools"]
+readme = "README.md"
 
 [lib]
 proc-macro = true
