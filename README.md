@@ -6,7 +6,7 @@ Multi-strategy parser for messy, real-world data. Built to handle LLM responses 
 
 ```toml
 [dependencies]
-tryparse = "0.1"
+tryparse = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 ```
 
@@ -64,8 +64,8 @@ Advanced features require the `derive` feature:
 
 ```toml
 [dependencies]
-tryparse = { version = "0.1", features = ["derive"] }
-tryparse-derive = "0.1"
+tryparse = { version = "0.3", features = ["derive"] }
+tryparse-derive = "0.3"
 ```
 
 **Fuzzy field matching** - Handles different naming conventions:
@@ -388,16 +388,16 @@ match response {
 ```toml
 # Default: includes markdown and yaml
 [dependencies]
-tryparse = "0.1"
+tryparse = "0.3"
 
 # Minimal build (core JSON parsing only)
-tryparse = { version = "0.1", default-features = false }
+tryparse = { version = "0.3", default-features = false }
 
 # With derive macros for LlmDeserialize
-tryparse = { version = "0.1", features = ["derive"] }
+tryparse = { version = "0.3", features = ["derive"] }
 
 # All features
-tryparse = { version = "0.1", features = ["derive", "markdown", "yaml"] }
+tryparse = { version = "0.3", features = ["derive", "markdown", "yaml"] }
 ```
 
 Available features:
