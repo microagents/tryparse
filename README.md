@@ -151,9 +151,6 @@ fn parse_llm<T: LlmDeserialize>(input: &str) -> Result<T>
 
 // Parse with LlmDeserialize, get all candidates
 fn parse_llm_with_candidates<T: LlmDeserialize>(input: &str) -> Result<(T, Vec<FlexValue>)>
-
-// Parse with schema information
-fn parse_with_schema<T: DeserializeOwned + SchemaInfo>(input: &str) -> Result<T>
 ```
 
 ### Utilities
@@ -406,7 +403,7 @@ tryparse = { version = "0.1", features = ["derive", "markdown", "yaml"] }
 Available features:
 - `markdown` (default) - Markdown code block extraction
 - `yaml` (default) - YAML parsing support
-- `derive` - Derive macros for `LlmDeserialize` and `SchemaInfo`
+- `derive` - Derive macro for `LlmDeserialize` (fuzzy field/enum matching, union types)
 
 ## Testing
 

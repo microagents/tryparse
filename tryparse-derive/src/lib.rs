@@ -1,169 +1,24 @@
 //! Derive macros for tryparse
 //!
-//! This crate provides derive macros for automatically generating
-//! schema information and deserialization logic from Rust types.
+//! This crate provides the `LlmDeserialize` derive macro for automatically
+//! generating fuzzy deserialization logic from Rust types.
 
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput, Fields, GenericArgument, PathArguments, Type};
 
-/// Derives the `SchemaInfo` trait for a struct or enum.
-///
-/// # Example
-///
-/// ```ignore
-/// use tryparse::SchemaInfo;
-///
-/// #[derive(SchemaInfo)]
-/// struct User {
-///     name: String,
-///     age: u32,
-/// }
-///
-/// let schema = User::schema();
-/// // Schema::Object { name: "User", fields: [...] }
-/// ```
-#[proc_macro_derive(SchemaInfo)]
-pub fn derive_schema_info(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
-    let name = &input.ident;
-    let generics = &input.generics;
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    let schema_impl = match &input.data {
-        Data::Struct(data_struct) => generate_struct_schema(name, data_struct),
-        Data::Enum(data_enum) => generate_enum_schema(name, data_enum),
-        Data::Union(_) => {
-            return syn::Error::new_spanned(input, "SchemaInfo cannot be derived for unions")
-                .to_compile_error()
-                .into();
-        }
-    };
-
-    let expanded = quote! {
-        impl #impl_generics ::tryparse::schema::SchemaInfo for #name #ty_generics #where_clause {
-            fn schema() -> ::tryparse::schema::Schema {
-                #schema_impl
-            }
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-fn generate_struct_schema(name: &syn::Ident, data: &syn::DataStruct) -> proc_macro2::TokenStream {
-    let name_str = name.to_string();
-
-    match &data.fields {
-        Fields::Named(fields) => {
-            let field_defs = fields.named.iter().map(|f| {
-                let field_name = f.ident.as_ref().unwrap().to_string();
-                let field_type = &f.ty;
-
-                quote! {
-                    ::tryparse::schema::Field::new(
-                        #field_name,
-                        <#field_type as ::tryparse::schema::SchemaInfo>::schema()
-                    )
-                }
-            });
-
-            quote! {
-                ::tryparse::schema::Schema::Object {
-                    name: #name_str.to_string(),
-                    fields: vec![#(#field_defs),*],
-                }
-            }
-        }
-        Fields::Unnamed(fields) => {
-            // Treat tuple structs as tuples
-            let field_types = fields.unnamed.iter().map(|f| {
-                let ty = &f.ty;
-                quote! {
-                    <#ty as ::tryparse::schema::SchemaInfo>::schema()
-                }
-            });
-
-            quote! {
-                ::tryparse::schema::Schema::Tuple(vec![#(#field_types),*])
-            }
-        }
-        Fields::Unit => {
-            // Unit struct is like null
-            quote! {
-                ::tryparse::schema::Schema::Null
-            }
-        }
-    }
-}
-
-fn generate_enum_schema(name: &syn::Ident, data: &syn::DataEnum) -> proc_macro2::TokenStream {
-    let name_str = name.to_string();
-
-    let variant_defs = data.variants.iter().map(|v| {
-        let variant_name = v.ident.to_string();
-
-        let variant_schema = match &v.fields {
-            Fields::Named(fields) => {
-                // Variant with named fields - treat as object
-                let field_defs = fields.named.iter().map(|f| {
-                    let field_name = f.ident.as_ref().unwrap().to_string();
-                    let field_type = &f.ty;
-
-                    quote! {
-                        ::tryparse::schema::Field::new(
-                            #field_name,
-                            <#field_type as ::tryparse::schema::SchemaInfo>::schema()
-                        )
-                    }
-                });
-
-                quote! {
-                    ::tryparse::schema::Schema::Object {
-                        name: #variant_name.to_string(),
-                        fields: vec![#(#field_defs),*],
-                    }
-                }
-            }
-            Fields::Unnamed(fields) => {
-                // Variant with unnamed fields - treat as tuple
-                let field_types = fields.unnamed.iter().map(|f| {
-                    let ty = &f.ty;
-                    quote! {
-                        <#ty as ::tryparse::schema::SchemaInfo>::schema()
-                    }
-                });
-
-                quote! {
-                    ::tryparse::schema::Schema::Tuple(vec![#(#field_types),*])
-                }
-            }
-            Fields::Unit => {
-                // Unit variant - like null
-                quote! {
-                    ::tryparse::schema::Schema::Null
-                }
-            }
-        };
-
-        quote! {
-            ::tryparse::schema::Variant::new(#variant_name, #variant_schema)
-        }
-    });
-
-    quote! {
-        ::tryparse::schema::Schema::Union {
-            name: #name_str.to_string(),
-            variants: vec![#(#variant_defs),*],
-        }
-    }
-}
-
-/// Derives the `LlmDeserialize` trait for a struct.
+/// Derives the `LlmDeserialize` trait for structs and enums.
 ///
 /// This macro generates a custom deserialization implementation using BAML's
 /// algorithms for fuzzy field matching and type coercion.
+///
+/// # Features
+///
+/// - **Fuzzy field matching**: Handles different naming conventions (userName ↔ user_name)
+/// - **Fuzzy enum matching**: Case-insensitive, substring, and edit-distance matching for variants
+/// - **Union types**: Score-based variant selection with `#[llm(union)]`
+/// - **Optional fields**: Automatic handling of `Option<T>` fields
+/// - **Transformation tracking**: Records all coercions applied during parsing
 ///
 /// # Example
 ///
@@ -177,11 +32,21 @@ fn generate_enum_schema(name: &syn::Ident, data: &syn::DataEnum) -> proc_macro2:
 ///     email: Option<String>, // Optional field
 /// }
 ///
-/// // The macro generates an implementation that:
-/// // - Handles fuzzy field matching (userName → user_name)
-/// // - Supports optional fields with defaults
-/// // - Detects circular references
-/// // - Tracks transformations
+/// // Handles messy input like:
+/// // {"userName": "Alice", "age": "30"}  // camelCase + string number
+/// ```
+///
+/// # Union Types
+///
+/// ```ignore
+/// #[derive(LlmDeserialize)]
+/// #[llm(union)]
+/// enum Value {
+///     Number(i64),
+///     Text(String),
+/// }
+///
+/// // Automatically picks the best matching variant
 /// ```
 #[proc_macro_derive(LlmDeserialize, attributes(llm))]
 pub fn derive_llm_deserialize(input: TokenStream) -> TokenStream {

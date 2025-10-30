@@ -1,25 +1,19 @@
 //! Comprehensive integration tests demonstrating full system capabilities.
 //!
 //! These tests verify the complete parsing pipeline including:
-//! - Schema derivation
-//! - State machine parsing
+//! - Multi-strategy parsing
 //! - Field normalization
 //! - Type coercion
 //! - Robust error handling
 
 use serde::Deserialize;
-#[cfg(feature = "derive")]
-use tryparse::schema::SchemaInfo;
-use tryparse::{parse, parse_with_candidates, parse_with_schema};
-#[cfg(feature = "derive")]
-use tryparse_derive::SchemaInfo;
+use tryparse::{parse, parse_with_candidates};
 
 // ============================================================================
 // Test Structures
 // ============================================================================
 
 #[derive(Debug, Deserialize, PartialEq)]
-#[cfg_attr(feature = "derive", derive(SchemaInfo))]
 struct User {
     name: String,
     age: u32,
@@ -27,7 +21,6 @@ struct User {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
-#[cfg_attr(feature = "derive", derive(SchemaInfo))]
 struct Product {
     id: i64,
     name: String,
@@ -37,14 +30,12 @@ struct Product {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
-#[cfg_attr(feature = "derive", derive(SchemaInfo))]
 struct NestedData {
     user: User,
     products: Vec<Product>,
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "derive", derive(SchemaInfo))]
 enum Status {
     Active,
     Pending,
@@ -195,37 +186,6 @@ fn test_multiple_candidates_best_selected() {
 
     assert_eq!(user.name, "Bob");
     assert!(!candidates.is_empty());
-}
-
-// ============================================================================
-// Schema-Aware Tests (with derive feature)
-// ============================================================================
-
-#[test]
-#[cfg(feature = "derive")]
-fn test_schema_aware_parsing() {
-    let input = r#"{"name": "Alice", "age": 30}"#;
-    let user: User = parse_with_schema(input).unwrap();
-
-    assert_eq!(user.name, "Alice");
-    assert_eq!(user.age, 30);
-}
-
-#[test]
-#[cfg(feature = "derive")]
-fn test_schema_inspection() {
-    let schema = User::schema();
-
-    match schema {
-        tryparse::schema::Schema::Object { name, fields } => {
-            assert_eq!(name, "User");
-            assert_eq!(fields.len(), 3);
-            assert_eq!(fields[0].name, "name");
-            assert_eq!(fields[1].name, "age");
-            assert_eq!(fields[2].name, "email");
-        }
-        _ => panic!("Expected Object schema"),
-    }
 }
 
 // ============================================================================

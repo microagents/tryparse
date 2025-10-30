@@ -1,6 +1,6 @@
 # tryparse-derive
 
-Procedural macros for [`tryparse`](https://crates.io/crates/tryparse). Provides derive macros for parsing messy LLM outputs with fuzzy field matching, enum matching, and union types.
+Procedural macro for [`tryparse`](https://crates.io/crates/tryparse). Provides the `LlmDeserialize` derive macro for parsing messy LLM outputs with fuzzy field matching, enum matching, and union types.
 
 ## Usage
 
@@ -14,10 +14,12 @@ tryparse-derive = "0.1"
 
 ## What This Provides
 
-Two derive macros:
+The `#[derive(LlmDeserialize)]` macro generates fuzzy deserialization implementations that handle:
 
-1. **`LlmDeserialize`** - Fuzzy deserialization for LLM responses
-2. **`SchemaInfo`** - Runtime schema introspection
+- **Fuzzy field matching**: camelCase ↔ snake_case, case-insensitive
+- **Fuzzy enum matching**: case-insensitive, substring matching, edit distance
+- **Union types**: Automatic variant selection with `#[llm(union)]`
+- **Type coercion**: String numbers, array unwrapping, etc.
 
 ## LlmDeserialize
 
@@ -124,57 +126,6 @@ let w: Wrapper = parse_llm(r#""hello world""#).unwrap();
 assert_eq!(w.data, "hello world");
 ```
 
-## SchemaInfo
-
-Generates runtime schema information for introspection:
-
-```rust
-use tryparse::schema::SchemaInfo;
-use tryparse_derive::SchemaInfo;
-
-#[derive(SchemaInfo)]
-struct User {
-    name: String,
-    age: u32,
-    email: Option<String>,
-}
-
-// Get schema at runtime
-let schema = User::schema();
-println!("{:?}", schema);
-// Schema::Object {
-//   name: "User",
-//   fields: [
-//     Field { name: "name", schema: String, required: true },
-//     Field { name: "age", schema: Int, required: true },
-//     Field { name: "email", schema: Optional(String), required: false }
-//   ]
-// }
-```
-
-Works with enums too:
-
-```rust
-use tryparse_derive::SchemaInfo;
-
-#[derive(SchemaInfo)]
-enum Status {
-    Active,
-    Pending,
-    Completed { result: String },
-}
-
-let schema = Status::schema();
-// Schema::Union {
-//   name: "Status",
-//   variants: [
-//     Variant { name: "Active", schema: Null },
-//     Variant { name: "Pending", schema: Null },
-//     Variant { name: "Completed", schema: Object { ... } }
-//   ]
-// }
-```
-
 ## When to Use
 
 | Scenario | Use This |
@@ -182,8 +133,8 @@ let schema = Status::schema();
 | Strict JSON from well-behaved APIs | `serde::Deserialize` (no derive macro needed) |
 | LLM responses with inconsistent field names | `#[derive(LlmDeserialize)]` |
 | Need to handle multiple possible types | `#[derive(LlmDeserialize)]` with `#[llm(union)]` |
-| Runtime schema inspection | `#[derive(SchemaInfo)]` |
 | Parsing enums where LLM might use different casings | `#[derive(LlmDeserialize)]` |
+| LLM outputs with typos in enum variants | `#[derive(LlmDeserialize)]` (edit-distance matching) |
 
 ## Technical Notes
 
@@ -197,9 +148,9 @@ let schema = Status::schema();
 
 ```rust
 use tryparse::parse_llm;
-use tryparse_derive::{LlmDeserialize, SchemaInfo};
+use tryparse_derive::LlmDeserialize;
 
-#[derive(Debug, LlmDeserialize, SchemaInfo)]
+#[derive(Debug, LlmDeserialize)]
 struct Config {
     api_key: String,
     max_retries: i64,
@@ -207,13 +158,17 @@ struct Config {
     status: Status,
 }
 
-#[derive(Debug, LlmDeserialize, SchemaInfo)]
+#[derive(Debug, LlmDeserialize)]
 enum Status {
     Enabled,
     Disabled,
 }
 
-// LLM returns inconsistent format
+// LLM returns inconsistent format - handles all of these issues:
+// - camelCase instead of snake_case (apiKey → api_key)
+// - String number ("3" → 3)
+// - Case mismatch ("enabled" → Status::Enabled)
+// - Missing optional field (timeout_ms)
 let llm_output = r#"
 {
   "apiKey": "secret",
@@ -230,10 +185,6 @@ println!("{:?}", config);
 //   timeout_ms: None,
 //   status: Status::Enabled
 // }
-
-// Inspect schema
-let schema = Config::schema();
-println!("Schema: {}", schema.type_name());
 ```
 
 ## License

@@ -2,11 +2,6 @@
 //!
 //! A forgiving parser that converts messy LLM responses into strongly-typed Rust structs.
 //!
-//! ## Schema-Aware Parsing
-//!
-//! The library now supports compile-time schema information to guide parsing decisions.
-//! Use the `SchemaInfo` trait (typically via derive macro) to provide type information.
-//!
 //! This library handles common issues in LLM outputs like:
 //! - JSON wrapped in markdown code blocks
 //! - Trailing commas
@@ -69,7 +64,6 @@ pub mod constraints;
 pub mod deserializer;
 pub mod error;
 pub mod parser;
-pub mod schema;
 pub mod scoring;
 pub mod value;
 
@@ -214,66 +208,8 @@ pub fn parse_with_parser<T: DeserializeOwned>(input: &str, parser: &FlexiblePars
     Err(ParseError::NoCandidates)
 }
 
-/// Parses an LLM response using schema information for guided parsing.
-///
-/// This function leverages compile-time schema information from the `SchemaInfo` trait
-/// to make better parsing decisions. It's particularly useful for:
-/// - Field name normalization (camelCase → snake_case)
-/// - Better error messages with type context
-/// - Schema-aware type coercion
-///
-/// # Examples
-///
-/// ```no_run
-/// use tryparse::parse_with_schema;
-/// use tryparse::schema::SchemaInfo;
-/// use serde::Deserialize;
-///
-/// #[derive(Deserialize)]
-/// struct User {
-///     user_name: String,
-///     age: u32,
-/// }
-///
-/// // Implement SchemaInfo manually (or use derive macro with feature flag)
-/// impl SchemaInfo for User {
-///     fn schema() -> tryparse::schema::Schema {
-///         tryparse::schema::Schema::Object {
-///             name: "User".to_string(),
-///             fields: vec![
-///                 tryparse::schema::Field::new("user_name", tryparse::schema::Schema::String)
-///                     .with_alias("userName")
-///                     .with_alias("UserName"),
-///                 tryparse::schema::Field::new("age", tryparse::schema::Schema::Int),
-///             ],
-///         }
-///     }
-/// }
-///
-/// // Parse with camelCase field names - schema guides normalization
-/// let response = r#"{"userName": "Alice", "age": 30}"#;
-/// let user: User = parse_with_schema(response).unwrap();
-/// assert_eq!(user.user_name, "Alice");
-/// ```
-///
-/// # Errors
-///
-/// Returns `ParseError::NoCandidates` if no valid JSON could be extracted.
-/// Returns `ParseError::DeserializeFailed` if deserialization fails for all candidates.
-pub fn parse_with_schema<T: DeserializeOwned + schema::SchemaInfo>(input: &str) -> Result<T> {
-    // Get schema information at compile time
-    let _schema = T::schema();
-
-    // For now, use the standard parsing pipeline
-    // The schema information is available for future enhancements like:
-    // - Field alias matching
-    // - Better error messages with expected type context
-    // - Schema-guided fixing strategies
-    parse(input)
-}
-
 // ================================================================================================
-// New API using LlmDeserialize trait
+// LlmDeserialize API
 // ================================================================================================
 
 /// Parses an LLM response using BAML's deserialization algorithms.
