@@ -5,13 +5,15 @@ use crate::{
     parser::strategies::ParsingStrategy,
     value::{FlexValue, Source},
 };
+use saphyr::{LoadableYamlNode, Scalar, Yaml};
+use serde_json::{Map, Number, Value as JsonValue};
 
 /// Strategy that parses YAML content and converts it to JSON.
 ///
 /// This strategy:
 /// 1. Detects YAML-like content (key: value patterns)
-/// 2. Attempts to parse as YAML using serde_yaml
-/// 3. Converts the parsed YAML to JSON via serde_json::Value
+/// 2. Attempts to parse as YAML using saphyr
+/// 3. Converts the parsed YAML to JSON via [`serde_json::Value`]
 ///
 /// # Examples
 ///
@@ -28,8 +30,55 @@ pub struct YamlStrategy;
 
 impl YamlStrategy {
     /// Creates a new YAML strategy.
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self
+    }
+
+    /// Converts a saphyr Yaml value to [`serde_json::Value`].
+    fn yaml_to_json(yaml: &Yaml) -> Option<JsonValue> {
+        match yaml {
+            Yaml::Value(scalar) => match scalar {
+                Scalar::Null => Some(JsonValue::Null),
+                Scalar::Boolean(b) => Some(JsonValue::Bool(*b)),
+                Scalar::Integer(i) => Some(JsonValue::Number(Number::from(*i))),
+                Scalar::FloatingPoint(f) => Number::from_f64(f.into_inner()).map(JsonValue::Number),
+                Scalar::String(s) => Some(JsonValue::String(s.to_string())),
+            },
+            Yaml::Sequence(seq) => {
+                let vec: Option<Vec<JsonValue>> = seq.iter().map(Self::yaml_to_json).collect();
+                vec.map(JsonValue::Array)
+            }
+            Yaml::Mapping(mapping) => {
+                let mut map = Map::new();
+                for (k, v) in mapping {
+                    if let Some(key_str) = Self::yaml_to_string(k) {
+                        if let Some(value) = Self::yaml_to_json(v) {
+                            map.insert(key_str, value);
+                        }
+                    }
+                }
+                Some(JsonValue::Object(map))
+            }
+            Yaml::Tagged(_tag, node) => Self::yaml_to_json(node),
+            Yaml::Representation(s, _, _) => Some(JsonValue::String(s.to_string())),
+            Yaml::Alias(_) | Yaml::BadValue => None,
+        }
+    }
+
+    /// Convert a Yaml value to a string representation for use as a map key.
+    fn yaml_to_string(yaml: &Yaml) -> Option<String> {
+        match yaml {
+            Yaml::Value(scalar) => Some(match scalar {
+                Scalar::String(s) => s.to_string(),
+                Scalar::Integer(i) => i.to_string(),
+                Scalar::FloatingPoint(f) => f.to_string(),
+                Scalar::Boolean(b) => b.to_string(),
+                Scalar::Null => String::from("null"),
+            }),
+            Yaml::Representation(s, _, _) => Some(s.to_string()),
+            _ => None,
+        }
     }
 
     /// Checks if the input looks like YAML.
@@ -77,16 +126,16 @@ impl ParsingStrategy for YamlStrategy {
         }
 
         // Try to parse as YAML
-        match serde_yaml::from_str::<serde_yaml::Value>(input) {
-            Ok(yaml_value) => {
-                // Convert YAML Value to JSON Value
-                match serde_json::to_value(&yaml_value) {
-                    Ok(json_value) => {
+        match Yaml::load_from_str(input) {
+            Ok(docs) => {
+                // YAML can contain multiple documents, we take the first one
+                if let Some(yaml_doc) = docs.first() {
+                    if let Some(json_value) = Self::yaml_to_json(yaml_doc) {
                         let flex_value = FlexValue::new(json_value, Source::Yaml);
-                        Ok(vec![flex_value])
+                        return Ok(vec![flex_value]);
                     }
-                    Err(_) => Ok(Vec::new()),
                 }
+                Ok(Vec::new())
             }
             Err(_) => {
                 // Not valid YAML
