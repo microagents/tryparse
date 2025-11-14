@@ -8,8 +8,8 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tryparse = { version = "0.3", features = ["derive"] }
-tryparse-derive = "0.3"
+tryparse = { version = "0.4", features = ["derive"] }
+tryparse-derive = "0.4"
 ```
 
 ## What This Provides
